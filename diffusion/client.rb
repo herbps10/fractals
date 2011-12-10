@@ -1,3 +1,9 @@
+require 'socket'
+require 'drb'
+
+BASE_DIRECTORY = "/home/herb/git/fractals"
+$NODE = Socket.gethostname[4..7].to_i
+
 class Fractal
 	attr_accessor :variables
 
@@ -30,17 +36,24 @@ class Fractal
 	end
 
 	def save_cfg
-		template = File.open("/home/herb/git/fractals/template.cfg").read
+		template = File.open("#{BASE_DIRECTORY}/template.cfg").read
 
 		6.times do |i|
 			template.gsub!("$#{i}", variables[i].to_s)
 		end
 
-		File.open("/home/herb/git/fractals/output/output.cfg", "w") { |f| f.write(template) }
+		File.open("#{BASE_DIRECTORY}/output/#{$NODE}.cfg", "w") { |f| f.write(template) }
+	end
+
+	def generate_image
+		`cfdg #{BASE_DIRECTORY}/output/#{$NODE}.cfg #{BASE_DIRECTORY}/output/#{$NODE}.png -m 10000`
 	end
 end
 
-f = Fractal.new
-f.generate
+fractal = Fractal.new
 
-f.save_cfg
+DRb.start_service "druby://localhost:900#{$NODE}", fractal
+
+trap("INT") { DRb.stop_service }
+
+DRb.thread.join
